@@ -8,13 +8,14 @@
  */
 var pluginTrendlineLinear = {
     beforeDraw: function(chartInstance) {
+        var xScale = chartInstance.scales["x-axis-0"];        
         var yScale = chartInstance.scales["y-axis-0"];
         var ctx = chartInstance.chart.ctx;
 
         chartInstance.data.datasets.forEach(function(dataset, index) {
             if (dataset.trendlineLinear) {
                 var datasetMeta = chartInstance.getDatasetMeta(index);
-                addFitter(datasetMeta, ctx, dataset, yScale);
+                addFitter(datasetMeta, ctx, dataset, xScale, yScale);
             }
         });
 
@@ -22,11 +23,11 @@ var pluginTrendlineLinear = {
     }
 };
 
-function addFitter(datasetMeta, ctx, dataset, yScale) {
+function addFitter(datasetMeta, ctx, dataset, xScale, yScale) {
     var style = dataset.trendlineLinear.style || dataset.borderColor;
     var lineWidth = dataset.trendlineLinear.width || dataset.borderWidth;
     var lineStyle = dataset.trendlineLinear.lineStyle || "solid";
-
+    
     style = (style !== undefined) ? style : "rgba(169,169,169, .6)";
     lineWidth = (lineWidth !== undefined) ? lineWidth : 3;
 
@@ -35,15 +36,21 @@ function addFitter(datasetMeta, ctx, dataset, yScale) {
     var endPos = datasetMeta.data[lastIndex]._model.x;
     var fitter = new LineFitter();
 
-    dataset.data.forEach(function(data, index) {
-        fitter.add(index, data);
-    });
+    if(xScale.options.type==="time") {
+        dataset.data.forEach(function(data, index) {
+            fitter.add(index, data.y);
+        });
+    } else {
+        dataset.data.forEach(function(data, index) {
+            fitter.add(index, data);
+        });
+    }    
 
     ctx.lineWidth = lineWidth;
     if (lineStyle === "dotted") {
         ctx.setLineDash([2, 3]);
     }
-    ctx.beginPath();
+    ctx.beginPath();    
     ctx.moveTo(startPos, yScale.getPixelForValue(fitter.project(0)));
     ctx.lineTo(endPos, yScale.getPixelForValue(fitter.project(lastIndex)));
     ctx.strokeStyle = style;
@@ -61,7 +68,7 @@ function LineFitter() {
 }
 
 LineFitter.prototype = {
-    'add': function (x, y) {
+    'add': function (x, y) {        
         this.count++;
         this.sumX += x;
         this.sumX2 += x * x;
